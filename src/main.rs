@@ -1,33 +1,14 @@
 use std::process::{Command, Stdio};
 use chrono::prelude::*;
-use log::{debug, error, info, trace, warn, LevelFilter};
-use log4rs::{
-    append::{
-        file::FileAppender,
-    },
-    config::{Appender, Config, Root},
-    encode::pattern::PatternEncoder,
-};
+use log::{error, info, warn, SetLoggerError};
 
-fn main() {
-    let logfile_path = "/home/piotr/logs/tzcheck.log";
-     let logfile = FileAppender::builder()
-        // Pattern: https://docs.rs/log4rs/*/log4rs/encode/pattern/index.html
-        .encoder(Box::new(PatternEncoder::new("{d(%Y-%m-%d %H:%M:%S)} {l}: {m}\n")))
-        .build(logfile_path)
-        .unwrap();
-     let config = Config::builder()
-        .appender(Appender::builder().build("logfile", Box::new(logfile)))
-        .build(
-            Root::builder()
-                .appender("logfile")
-                .build(LevelFilter::Trace),
-        )
-        .unwrap();
+mod logger;
+use logger::{Logger, Output};
 
-     let _handle = log4rs::init_config(config).unwrap();
+fn main()  -> Result<(), SetLoggerError> {
+    Logger::set(Output::File("/home/piotr/logs/tzcheck.log"), log::Level::Trace)?;
 
-    let output = Command::new("docker").arg("logs").arg("-n").arg("1").arg("octez-node")
+    let output = Command::new("docker").arg("logs").arg("-n1").arg("octez-node")
         // Tell the OS to record the command's output
         .stdout(Stdio::piped())
         // execute the command, wait for it to complete, then capture the output
@@ -38,7 +19,7 @@ fn main() {
     let status_code = output.status.code().unwrap();
     if status_code != 0 {
         error!("docker logs status code = {}", status_code);
-        return;
+        return Ok(());
     }
     //dbg!(&output);
     // extract the raw bytes that we captured and interpret them as a string
@@ -66,7 +47,7 @@ fn main() {
     let diff_in_seconds = now_ts-log_ts;
     if diff_in_seconds < 60 {
         info!("Difference {} seconds", diff_in_seconds);
-        return;
+        return Ok(());
     }
     // restart tezos docker container bc its stuck
     let _output = Command::new("docker-compose").arg("restart")
@@ -75,5 +56,5 @@ fn main() {
         .output()
         .unwrap();
     warn!("Difference {} seconds: tezos container restarted", diff_in_seconds);
-
+    Ok(())
 }

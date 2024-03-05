@@ -8,7 +8,7 @@ edition = "2018"
 debug = false
 strip = true
 #opt-level = 3
-opt-level = 'z'  # Optimize for size.
+opt-level = 's'  # Optimize for size.
 panic = 'abort'
 lto = true
 codegen-units = 1
@@ -16,5 +16,4 @@ codegen-units = 1
 [dependencies]
 chrono = "0.4.34"
 log = "0.4.20"
-log4rs = "1.3.0"
 
