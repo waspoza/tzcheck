@@ -1,14 +1,15 @@
 use std::process::{Command, Stdio};
-use chrono::prelude::*;
 use log::{error, info, warn, SetLoggerError};
+use speedate::DateTime;
 
 mod logger;
 use logger::{Logger, Output};
 
 fn main()  -> Result<(), SetLoggerError> {
     Logger::set(Output::File("/home/piotr/logs/tzcheck.log"), log::Level::Trace)?;
+    //Logger::set(Output::STDOUT, log::Level::Trace)?;
 
-    let output = Command::new("docker").arg("logs").arg("-n1").arg("octez-node")
+    let output = Command::new("docker").arg("logs").arg("-n1").arg("-t").arg("octez-node")
         // Tell the OS to record the command's output
         .stdout(Stdio::piped())
         // execute the command, wait for it to complete, then capture the output
@@ -25,23 +26,16 @@ fn main()  -> Result<(), SetLoggerError> {
     // extract the raw bytes that we captured and interpret them as a string
     let mut stdout = String::from_utf8(output.stderr).unwrap();
 
-    //assert_eq!("January".parse::<Month>(), Ok(Month::January));
-    //println!("{}", stdout);
-    let now = Local::now();
-    let now_str = now.to_rfc3339(); //1996-12-19T16:39:57-08:00
-    let now_year = &now_str[..4];
-    // add current year to the docker log output
-    stdout.insert_str(0, now_year);
-    // append timezone
-    stdout.insert_str(19, " +0100");
-    //println!("{}", stdout);
-    //println!("{}", &stdout[..25]);
-    let log_dt = DateTime::parse_from_str(&stdout[..25], "%Y%b %d %H:%M:%S %z").unwrap();
+    // 2024-03-06T00:57:36.145446126Z Mar 06 01:57:36.145: operation op2A7QUS2B2jT99nkhrv3XWtQLiHBa5nwjoasV4sXazEiyhYf41 injected
+    stdout.insert_str(19, "Z"); // reduce the number of miliseconds for parsing
+    //println!("{}", &stdout[..20]);
+    let mut log_dt = DateTime::parse_str(&stdout[..20]).unwrap();
+    log_dt = log_dt.in_timezone(3600).unwrap(); // convert from docker timestamp log UTC time
 
-    let now_ts: i64 = now.timestamp();
-
+    let now = DateTime::now(3600).unwrap();
+    let now_ts = now.timestamp();
     //println!("Current timestamp is {}", now_ts);
-    let log_ts: i64 = log_dt.timestamp();
+    let log_ts = log_dt.timestamp();
     //println!("Log timestamp is {}", log_ts);
     //println!("Diff in seconds: {}", now_ts-log_ts);
     let diff_in_seconds = now_ts-log_ts;
